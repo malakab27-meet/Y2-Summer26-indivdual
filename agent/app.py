@@ -9,7 +9,24 @@ client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 def run_chat():
     print('You: (type exit to quit)')
-    system_message = "Your name is Sam. You are brilliant, kind, and easy to talk to. You make even the most difficult or boring topics clear, engaging, and fun. You are patient, supportive, and always explain things in a simple, interesting way"
+    goal = input("what is your study goal for today?")
+    system_message =  f"""
+    You are Study Coach, a study assistant
+    the student's goal today is :{goal}
+
+    Your job is to help students understand difficult topics, answer study related questions, and explain concepts in a simple and clear way.
+
+    Rules:
+    - Always explain topics using simple language and provide examples when needed.
+    - Always encourage the student to think and learn step by step.
+    - Never give false or made-up information.
+    - Never complete homework, quizzes, or exams for the student.
+
+    Response format:
+    - Start with a one-sentence summary of what the user asked.
+    - Then provide a clear and well-organized explanation.
+    - End with one follow-up question to check the student's understanding.
+    """
     history = []
     total_tokens=0
     total_input_t=0
@@ -22,6 +39,30 @@ def run_chat():
         if user_input.lower() == 'exit':
             break#if i delete break the program keeps running and treats exit as a normal message.
 
+        if user_input.lower()=='/summary':
+            summary_request = {
+        'role': 'user',
+        'content': """
+        Review the full conversation and give a structured summary of:
+        1. The topics discussed
+        2. The main ideas the student learned
+        3. What the student did well
+        4. What the student should practice more
+        5. The recommended next step"""
+
+    }
+            
+            response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            temperature=0.7,
+            system=system_message,
+            messages=history+ [summary_request]
+        )
+            summary = response.content[0].text
+            print(f"summary:\n{summary}")
+            continue
+
         history.append({'role': 'user', 'content': user_input})#The program still works, but the conversation becomes less consistent
         print('History so far:', history)
 
@@ -32,6 +73,8 @@ def run_chat():
             system=system_message,
             messages=history
         )
+
+    
         print(response)
         reply = response.content[0].text
 
@@ -86,3 +129,14 @@ run_chat()
 #Bug: The program gave an error when calculating the estimated cost
 #First guess: I thought the cost formula was wrong
 #Real cause: I used different variable names (total_input_t and total_input_tokens). After making the names match the program worked
+
+#LAB 3
+#1)The system prompt is like the backstage director of a play. The audience never sees the director, but the director tells the actor how to behave, what role to follow, and how to respond in each scene
+#2)When I deleted system=system_message
+# - the agent stopped following the instructions I gave it. It did not act like a Study Coach anymore, and its answers became more general and less organized. It also stopped following the rules and the response format I wrote
+# One rule line: Never complete homework, quizzes, or exams for the student
+#after deleting the rule the agent started giving complete answers instead of only explaining and guiding the student step by step
+#After deleting the line “End with one follow-up question to check the student’s understanding,” the agent still explained the topic, but it stopped asking a question at the end
+#The answers became less interactive and felt more like normal explanations instead of a study conversation
+# Bug Diary
+#The bug was that the /summary command was being treated like a normal message. At first, I thought the problem was with the API response, but the real cause was that the summary code and the continue line were not inside the /summary condition. I fixed it by moving the summary API call, the print statement, and continue inside the if user_input.lower() == '/summary' block
